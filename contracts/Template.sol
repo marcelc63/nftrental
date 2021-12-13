@@ -20,6 +20,11 @@ What if X passes are still under rental.
 current check only check for the expiry of the latest pass being rent out
 */
 
+/*
+Todo:
+Check what's the gas for all of this lol
+*/
+
 contract RentContract {
   uint256 totalStake = 0;
   uint256 rentCount = 0;
@@ -81,6 +86,7 @@ contract RentContract {
     if (ownerStake.time < latestExpiry) {
       uint256 payout;
       for (uint256 i = ownerStake.rentCount; i < rentCount; i++) {
+        // Maybe add another check here to see if pass has expire or not
         Rent memory renterRent = rents[i];
         payout += renterRent.price / totalStake;
       }
