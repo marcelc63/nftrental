@@ -3,7 +3,9 @@ pragma solidity ^0.8.4;
 
 /* 
 Limitations
-all pass can only be rented out for 1 month */
+all pass can only be rented out for 1 month 
+the longer you stake, the more expensive it will be to unstake since the loop will be longer
+*/
 
 contract RentContract {
   uint256 totalStake = 0;
