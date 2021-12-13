@@ -7,6 +7,19 @@ all pass can only be rented out for 1 month
 the longer you stake, the more expensive it will be to unstake since the loop will be longer
 */
 
+/*
+Features
+proportional payout per rental depending on how many has been staking at the time
+ability to cash out anytime and get proportional payout
+ability to increase rent price
+*/
+
+/*
+Known issue
+What if X passes are still under rental. 
+current check only check for the expiry of the latest pass being rent out
+*/
+
 contract RentContract {
   uint256 totalStake = 0;
   uint256 rentCount = 0;
