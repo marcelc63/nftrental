@@ -111,9 +111,8 @@ contract RentingPooled is IERC721Receiver, Ownable {
       rentalMultiplier;
     require(rentalMaxLimit > totalTimesRented, "Maximum rental times reached");
 
-    uint256 renterLastRentDate = renters[msg.sender]; // A wallet can only rent one pass at a time.
     require(
-      block.timestamp > renterLastRentDate + 30 days,
+      block.timestamp > renters[msg.sender] + 30 days,
       "You still have an active rental"
     );
 
