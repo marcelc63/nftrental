@@ -27,9 +27,9 @@ abstract contract RareBlocksInterface {
 contract RentingPooled is IERC721Receiver, Ownable {
   RareBlocksInterface rareBlocks;
 
-  uint256 deployDate;
-  uint256 totalTimesRented;
-  uint256 rentalMultiplier; //
+  uint256 deployDate; // Timestamp of deployment
+  uint256 totalTimesRented; // Track total amount pass has been rented
+  uint256 rentalMultiplier; // Rent multiplier to increase rent supply
 
   mapping(address => uint256[]) tokenOwners; // Track staked tokens
 
@@ -40,7 +40,8 @@ contract RentingPooled is IERC721Receiver, Ownable {
   uint256 totalTokenStaked; // Total amount of tokens staked
   mapping(address => uint256) sharesPerWallet; // Amount of shares a wallet holds;
 
-  uint256 treasury;
+  uint256 _price; // Rental price
+  uint256 treasury; // Accumulated treasury
 
   struct Rent {
     address renter;
@@ -54,12 +55,13 @@ contract RentingPooled is IERC721Receiver, Ownable {
   event UpdateTreasury(address indexed newAddress); // Change treasure wallet address
   event SetRareblocksContractAddress(address indexed newAddress); // When a token has added to the rent list
 
-  constructor() {
+  constructor(uint256 price) {
     setRareblocksContractAddress(0x1bb191e56206e11b14117711C333CC18b9861262);
     treasuryAddress = 0x96E7C3bAA9c1EF234A1F85562A6C444213a02E0A;
 
     deployDate = block.timestamp;
     rentalMultiplier = 2;
+    _price = price;
   }
 
   // Set RarBlocks contract address
@@ -93,6 +95,9 @@ contract RentingPooled is IERC721Receiver, Ownable {
 
   // Rent a pass
   function rent() external payable {
+    /// @notice Make sure the sender has enough ether to rent a pass
+    require(msg.value >= _price, "Not enough ether");
+
     /// @dev Check months since deployed. This assume 1 month is 30 days.
     uint256 monthsSinceDeploy = (block.timestamp - deployDate) /
       1000 /
@@ -106,7 +111,6 @@ contract RentingPooled is IERC721Receiver, Ownable {
     uint256 rentalMaxLimit = monthsSinceDeploy *
       totalTokenStaked *
       rentalMultiplier;
-
     require(rentalMaxLimit > totalTimesRented, "Maximum rental times reached");
 
     /// @dev A wallet can only rent one pass at a time.
@@ -120,13 +124,23 @@ contract RentingPooled is IERC721Receiver, Ownable {
     /// @notice If Renter rents again the next month, we just need to override the struct.
     renters[msg.sender] = Rent({
       renter: msg.sender,
+      /// @dev Decided to record the rent date instead of expiry date since it's easy to get expiry date by adding 30 days.
       rentDate: uint256(block.timestamp)
     });
 
     /// @dev Increment total times rented
     totalTimesRented += 1;
 
+    /// @dev Add fee to treasury
+    treasury += _price;
+
     emit Rented(msg.sender);
+  }
+
+  // Check if renter has active rent
+  function isRentActive(address _address) external view returns (bool) {
+    /// @dev Check if current timestamp is less than expiry
+    return block.timestamp < renters[_address].rentDate + 30 days;
   }
 
   // List all tokens staked by address
@@ -156,7 +170,8 @@ contract RentingPooled is IERC721Receiver, Ownable {
   }
 
   function stakeAndPurchaseTreasuryStock(uint256 _tokenId) public payable {
-    uint256 sharePrice = treasury / totalOutstandingShares; // Amount of value in treasury per share = share price;
+    /// @dev Amount of value in treasury per share = share price;
+    uint256 sharePrice = treasury / totalOutstandingShares;
 
     require(msg.value == sharePrice, "Not enough value to purchase share");
 
@@ -169,7 +184,8 @@ contract RentingPooled is IERC721Receiver, Ownable {
       "You did not approve this contract to transfer."
     );
 
-    rareBlocks.safeTransferFrom(msg.sender, address(this), _tokenId); // Transfer token to contract
+    /// @dev Transfer token to contract
+    rareBlocks.safeTransferFrom(msg.sender, address(this), _tokenId);
 
     totalOutstandingShares++;
     sharesPerWallet[msg.sender]++;
@@ -188,20 +204,36 @@ contract RentingPooled is IERC721Receiver, Ownable {
 
     require(hasTokenStaked, "This tokenId has not been staked by you.");
 
-    rareBlocks.safeTransferFrom(address(this), msg.sender, _tokenId); // Send back token to owner
-    removeTokenIdFromTokenOwners(_tokenId); // Remove staked tokenId
+    /// @dev Send back token to owner
+    rareBlocks.safeTransferFrom(address(this), msg.sender, _tokenId);
+    /// @dev Remove staked tokenId
+    removeTokenIdFromTokenOwners(_tokenId);
 
-    uint256 valuePerShare = treasury / totalOutstandingShares; // New price per share
-    uint256 totalSharesOwned = sharesPerWallet[msg.sender]; // Total amount of owned shares
-    uint256 totalPayoutPrice = valuePerShare * totalSharesOwned; // Price to pay for selling shares
+    /// @dev New price per share
+    uint256 valuePerShare = treasury / totalOutstandingShares;
+    /// @dev Total amount of owned shares
+    uint256 totalSharesOwned = sharesPerWallet[msg.sender];
+    /// @dev Price to pay for selling shares
+    uint256 totalPayoutPrice = valuePerShare * totalSharesOwned;
 
+    /// @dev Reduce amount of shares outstanding
     totalOutstandingShares =
       totalOutstandingShares -
-      sharesPerWallet[msg.sender]; // Reduce amount of shares outstanding
-    sharesPerWallet[msg.sender] = 0; // Remove shares for wallet
+      sharesPerWallet[msg.sender];
+    /// @dev Remove shares for wallet
+    sharesPerWallet[msg.sender] = 0;
 
-    (bool success, ) = payable(msg.sender).call{ value: totalPayoutPrice }(""); // Pay commission to staker
+    /// @dev Pay commission to staker
+    (bool success, ) = payable(msg.sender).call{ value: totalPayoutPrice }("");
     emit Unstaked(msg.sender, _tokenId);
     require(success, "Failed to send Ether");
+  }
+
+  function getRentPrice() external view returns (uint256) {
+    return _price;
+  }
+
+  function setRentPrice(uint256 price) public onlyOwner {
+    _price = price;
   }
 }
