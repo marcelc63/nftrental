@@ -94,8 +94,7 @@ contract RentingPooled is IERC721Receiver, Ownable {
 
   // Rent a pass
   function rent() external payable {
-    /// @notice Make sure the sender has enough ether to rent a pass
-    require(msg.value >= _price, "Not enough ether");
+    require(msg.value >= _price, "Not enough ether"); // Make sure the sender has enough ether to rent a pass
 
     /// @dev Check months since deployed. This assume 1 month is 30 days.
     uint256 monthsSinceDeploy = (block.timestamp - deployDate) /
@@ -112,31 +111,25 @@ contract RentingPooled is IERC721Receiver, Ownable {
       rentalMultiplier;
     require(rentalMaxLimit > totalTimesRented, "Maximum rental times reached");
 
-    /// @dev A wallet can only rent one pass at a time.
-    uint256 renterLastRentDate = renters[msg.sender];
+    uint256 renterLastRentDate = renters[msg.sender]; // A wallet can only rent one pass at a time.
     require(
       block.timestamp > renterLastRentDate + 30 days,
       "You still have an active rental"
     );
 
-    /// @dev Map renter so we can easily check if rent is active or not.
     /// @notice If Renter rents again the next month, we just need to override the struct.
     /// @notice Decided to record the rent date instead of expiry date since it's easy to get expiry date by adding 30 days.
     renters[msg.sender] = uint256(block.timestamp);
 
-    /// @dev Increment total times rented
-    totalTimesRented += 1;
-
-    /// @dev Add fee to treasury
-    treasury += _price;
+    totalTimesRented += 1; // Increment total times rented
+    treasury += _price; // Add fee to treasury
 
     emit Rented(msg.sender);
   }
 
   // Check if renter has active rent
   function isRentActive(address _address) external view returns (bool) {
-    /// @dev Check if current timestamp is less than expiry
-    return block.timestamp < renters[_address] + 30 days;
+    return block.timestamp < renters[_address] + 30 days; // Check if current timestamp is less than expiry
   }
 
   // List all tokens staked by address
@@ -166,8 +159,7 @@ contract RentingPooled is IERC721Receiver, Ownable {
   }
 
   function stakeAndPurchaseTreasuryStock(uint256 _tokenId) public payable {
-    /// @dev Amount of value in treasury per share = share price;
-    uint256 sharePrice = treasury / totalOutstandingShares;
+    uint256 sharePrice = treasury / totalOutstandingShares; // Amount of value in treasury per share = share price;
 
     require(msg.value == sharePrice, "Not enough value to purchase share");
 
@@ -180,8 +172,7 @@ contract RentingPooled is IERC721Receiver, Ownable {
       "You did not approve this contract to transfer."
     );
 
-    /// @dev Transfer token to contract
-    rareBlocks.safeTransferFrom(msg.sender, address(this), _tokenId);
+    rareBlocks.safeTransferFrom(msg.sender, address(this), _tokenId); // Transfer token to contract
 
     totalOutstandingShares++;
     sharesPerWallet[msg.sender]++;
@@ -200,27 +191,19 @@ contract RentingPooled is IERC721Receiver, Ownable {
 
     require(hasTokenStaked, "This tokenId has not been staked by you.");
 
-    /// @dev Send back token to owner
-    rareBlocks.safeTransferFrom(address(this), msg.sender, _tokenId);
-    /// @dev Remove staked tokenId
-    removeTokenIdFromTokenOwners(_tokenId);
+    rareBlocks.safeTransferFrom(address(this), msg.sender, _tokenId); // Send back token to owner
+    removeTokenIdFromTokenOwners(_tokenId); // Remove staked tokenId
 
-    /// @dev New price per share
-    uint256 valuePerShare = treasury / totalOutstandingShares;
-    /// @dev Total amount of owned shares
-    uint256 totalSharesOwned = sharesPerWallet[msg.sender];
-    /// @dev Price to pay for selling shares
-    uint256 totalPayoutPrice = valuePerShare * totalSharesOwned;
+    uint256 valuePerShare = treasury / totalOutstandingShares; // New price per share
+    uint256 totalSharesOwned = sharesPerWallet[msg.sender]; // Total amount of owned shares
+    uint256 totalPayoutPrice = valuePerShare * totalSharesOwned; // Price to pay for selling shares
 
-    /// @dev Reduce amount of shares outstanding
     totalOutstandingShares =
       totalOutstandingShares -
-      sharesPerWallet[msg.sender];
-    /// @dev Remove shares for wallet
-    sharesPerWallet[msg.sender] = 0;
+      sharesPerWallet[msg.sender]; // Reduce amount of shares outstanding
+    sharesPerWallet[msg.sender] = 0; // @dev Remove shares for wallet
 
-    /// @dev Pay commission to staker
-    (bool success, ) = payable(msg.sender).call{ value: totalPayoutPrice }("");
+    (bool success, ) = payable(msg.sender).call{ value: totalPayoutPrice }(""); // Pay commission to staker
     emit Unstaked(msg.sender, _tokenId);
     require(success, "Failed to send Ether");
   }
