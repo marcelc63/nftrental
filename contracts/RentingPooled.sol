@@ -44,10 +44,9 @@ contract RentingPooled is IERC721Receiver, Ownable {
   uint256 treasury; // Accumulated treasury
 
   struct Rent {
-    address renter;
     uint256 rentDate;
   }
-  mapping(address => Rent) renters; // Track renter
+  mapping(address => uint256) renters; // Track renter
 
   event Rented(address indexed _address); // Renting event
   event Staked(address indexed from, uint256 indexed tokenId, address sender); // Staking a pass
@@ -114,19 +113,16 @@ contract RentingPooled is IERC721Receiver, Ownable {
     require(rentalMaxLimit > totalTimesRented, "Maximum rental times reached");
 
     /// @dev A wallet can only rent one pass at a time.
-    Rent memory renter = renters[msg.sender];
+    uint256 renterLastRentDate = renters[msg.sender];
     require(
-      block.timestamp > renter.rentDate + 30 days,
+      block.timestamp > renterLastRentDate + 30 days,
       "You still have an active rental"
     );
 
     /// @dev Map renter so we can easily check if rent is active or not.
     /// @notice If Renter rents again the next month, we just need to override the struct.
-    renters[msg.sender] = Rent({
-      renter: msg.sender,
-      /// @dev Decided to record the rent date instead of expiry date since it's easy to get expiry date by adding 30 days.
-      rentDate: uint256(block.timestamp)
-    });
+    /// @notice Decided to record the rent date instead of expiry date since it's easy to get expiry date by adding 30 days.
+    renters[msg.sender] = uint256(block.timestamp);
 
     /// @dev Increment total times rented
     totalTimesRented += 1;
@@ -140,7 +136,7 @@ contract RentingPooled is IERC721Receiver, Ownable {
   // Check if renter has active rent
   function isRentActive(address _address) external view returns (bool) {
     /// @dev Check if current timestamp is less than expiry
-    return block.timestamp < renters[_address].rentDate + 30 days;
+    return block.timestamp < renters[_address] + 30 days;
   }
 
   // List all tokens staked by address
