@@ -27,16 +27,28 @@ abstract contract RareBlocksInterface {
 contract RentingPooled is IERC721Receiver, Ownable {
   RareBlocksInterface rareBlocks;
 
+  uint256 deployDate;
+  uint256 totalTimesRented;
+  uint256 rentalMultiplier; //
+
   mapping(address => uint256[]) tokenOwners; // Track staked tokens
 
   address rareBlocksContractAddress; // Rareblocks NFT contract address
   address treasuryAddress; // Treasury
 
   uint256 totalOutstandingShares = 0; // Amount of outstanding shares of the treasury
+  uint256 totalTokenStaked; // Total amount of tokens staked
   mapping(address => uint256) sharesPerWallet; // Amount of shares a wallet holds;
 
   uint256 treasury;
 
+  struct Rent {
+    address renter;
+    uint256 rentDate;
+  }
+  mapping(address => Rent) renters; // Track renter
+
+  event Rented(address indexed _address); // Renting event
   event Staked(address indexed from, uint256 indexed tokenId, address sender); // Staking a pass
   event Unstaked(address indexed _from, uint256 indexed tokenId); // Unstaking a pass
   event UpdateTreasury(address indexed newAddress); // Change treasure wallet address
@@ -45,6 +57,9 @@ contract RentingPooled is IERC721Receiver, Ownable {
   constructor() {
     setRareblocksContractAddress(0x1bb191e56206e11b14117711C333CC18b9861262);
     treasuryAddress = 0x96E7C3bAA9c1EF234A1F85562A6C444213a02E0A;
+
+    deployDate = block.timestamp;
+    rentalMultiplier = 2;
   }
 
   // Set RarBlocks contract address
@@ -74,6 +89,44 @@ contract RentingPooled is IERC721Receiver, Ownable {
 
     emit Staked(_from, _tokenId, msg.sender);
     return bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
+  }
+
+  // Rent a pass
+  function rent() external payable {
+    /// @dev Check months since deployed. This assume 1 month is 30 days.
+    uint256 monthsSinceDeploy = (block.timestamp - deployDate) /
+      1000 /
+      60 /
+      60 /
+      24 /
+      30;
+
+    /// @dev Get max rent limit per month multiplied by rental multiplier.
+    /// @notice If no one rent out passes within the month, the max limit will keep on increasing.
+    uint256 rentalMaxLimit = monthsSinceDeploy *
+      totalTokenStaked *
+      rentalMultiplier;
+
+    require(rentalMaxLimit > totalTimesRented, "Maximum rental times reached");
+
+    /// @dev A wallet can only rent one pass at a time.
+    Rent memory renter = renters[msg.sender];
+    require(
+      block.timestamp > renter.rentDate + 30 days,
+      "You still have an active rental"
+    );
+
+    /// @dev Map renter so we can easily check if rent is active or not.
+    /// @notice If Renter rents again the next month, we just need to override the struct.
+    renters[msg.sender] = Rent({
+      renter: msg.sender,
+      rentDate: uint256(block.timestamp)
+    });
+
+    /// @dev Increment total times rented
+    totalTimesRented += 1;
+
+    emit Rented(msg.sender);
   }
 
   // List all tokens staked by address

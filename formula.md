@@ -27,3 +27,24 @@
     // shareprice = 0.5E / 1 = 0.5E
     // totalPayoutPrice = shares * sharePrice = 1 * 0.5 = 0.5E
     // User get's back his investment of 0.5E
+
+2.5 / 3
+
+// Treasury: 0ETH
+// A stakes 2 pass when its 0ETH
+
+// renter x rents 1 pass for 1 eth
+// Share price for rent A = 1 - 0 = 1 / 2
+// sharePrice: 0.5
+
+// B stakes pass for 1 pass
+// Stakes when treasury is at 1 eth
+// Total Stake = 3
+
+// Renter rent for 1 eth
+// Total treasury = 2
+// A shareprice = 2 - 0 = 2/3
+
+Renter B for 2 eth
+total treasury 2
+B sharePrice = 2 - 1 = 1 / 3
